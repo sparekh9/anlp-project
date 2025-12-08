@@ -46,9 +46,12 @@ def load_model(checkpoint_path, device='cpu'):
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
     config = checkpoint['config']
     
+    image_dim = config.get('image_dim', 768)
+    text_dim = config.get('text_dim', 768)
+
     model = HatefulMemeClassifier(
-        image_dim=768,  # CLIP embedding dim
-        text_dim=768,   # CLIP embedding dim
+        image_dim=image_dim,
+        text_dim=text_dim,
         hidden_dim=config['hidden_dim'],
         num_heads=config['num_heads'],
         num_layers=config['num_layers'],
@@ -78,7 +81,7 @@ def main():
     print("\nLoading embeddings...")
     data = np.load('hateful_memes_clip_embeddings_test.npz')
     image_embeds = data['image_embeddings']
-    text_embeds = data['text_embeddings']
+    text_embeds = data['text_concat_embeddings']
     labels = data['labels']
     ids = data['ids']
     

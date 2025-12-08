@@ -281,13 +281,17 @@ def main():
   print("\nLoading embeddings...")
   train_data = np.load('hateful_memes_clip_embeddings_train.npz')
   train_image_embeds = train_data['image_embeddings']
-  train_text_embeds = train_data['text_embeddings']
+  train_text_embeds = train_data['text_concat_embeddings']
   train_labels = train_data['labels']
   
   val_data = np.load('hateful_memes_clip_embeddings_val.npz')
   val_image_embeds = val_data['image_embeddings']
-  val_text_embeds = val_data['text_embeddings']
+  val_text_embeds = val_data['text_concat_embeddings']
   val_labels = val_data['labels']
+
+  # Store input dimensions in config for checkpoint/reloading
+  config['image_dim'] = train_image_embeds.shape[1]
+  config['text_dim'] = train_text_embeds.shape[1]
 
   print(f"Loaded {len(train_labels)} training samples")
   print(f"  Train Image embeddings shape: {train_image_embeds.shape}")
@@ -339,8 +343,8 @@ def main():
   # Create model
   print("\nInitializing model...")
   model = HatefulMemeClassifier(
-    image_dim=train_image_embeds.shape[1],
-    text_dim=train_text_embeds.shape[1],
+    image_dim=config['image_dim'],
+    text_dim=config['text_dim'],
     hidden_dim=config['hidden_dim'],
     num_heads=config['num_heads'],
     num_layers=config['num_layers'],
