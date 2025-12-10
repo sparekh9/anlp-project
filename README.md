@@ -1,5 +1,9 @@
 # ANLP Project
 
+# Data
+
+Refer to this [Google Drive](https://drive.google.com/drive/folders/1Xi7SrF3ZS8Kxb_NKKk_n-aM2irU1Z53e?usp=sharing) for data, models, embeddings, and results. 
+
 ## Intro
 - Purpose: Detect hateful memes by combining CLIP image/text embeddings with a lightweight cross-modal attention classifier.
 - Pipeline: generate LMM knowledge → build enriched CLIP embeddings → train classifier → run inference.
