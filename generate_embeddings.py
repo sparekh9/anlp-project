@@ -1,37 +1,50 @@
 #!/usr/bin/env python3
 
-from transformers import CLIPProcessor, CLIPModel
+from transformers import AutoModel, AutoProcessor
 from datasets import load_dataset
 import torch
 from tqdm import tqdm
 import numpy as np
 import os
+<<<<<<< Updated upstream
 import json
+=======
+import argparse
+>>>>>>> Stashed changes
 from PIL import Image
 
 
 def main():
 
+<<<<<<< Updated upstream
   # Load the model and processor
   print("Loading CLIP model...")
   model = CLIPModel.from_pretrained("openai/clip-vit-large-patch14")
   processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
   working_dir = "data"
   knowledge_dir = "knowledge"
+=======
+  parser = argparse.ArgumentParser()
+  parser.add_argument('--model', type=str, default="openai/clip-vit-large-patch14")
+  parser.add_argument('--input_dir', type=str, default="data")
+  parser.add_argument('--output_dir', type=str, default="hateful_memes_clip")
+  args = parser.parse_args()
 
-  # Move model to GPU if available
+  print("Loading CLIP model...")
+  model = AutoModel.from_pretrained(args.model)
+  processor = AutoProcessor.from_pretrained(args.model)
+>>>>>>> Stashed changes
+
   device = "cuda" if torch.cuda.is_available() else "cpu"
   model = model.to(device)
   print(f"Using device: {device}")
 
-  # Load the Hateful Memes dataset
   print("Loading Hateful Memes dataset...")
   dataset = load_dataset("neuralcatcher/hateful_memes")
 
   print(f"Dataset splits: {dataset.keys()}")
   print(f"Train split size: {len(dataset['train'])}")
 
-  # Function to check if image file exists and is valid
   def is_valid_image(img_path):
     """Check if image file exists and can be opened."""
     if not os.path.exists(img_path):
@@ -43,6 +56,7 @@ def main():
     except Exception:
       return False
 
+<<<<<<< Updated upstream
   def load_split_knowledge(split_name):
     """Load GPT-generated descriptions/emotions for the split."""
     suffix = "val" if split_name == "validation" else split_name
@@ -66,6 +80,8 @@ def main():
       return mean_feature.squeeze(0).cpu().numpy()
 
   # Function to extract embeddings
+=======
+>>>>>>> Stashed changes
   def extract_embeddings(split_name, batch_size=32):
     split = dataset[split_name]
 
@@ -81,19 +97,25 @@ def main():
     print(f"\nProcessing {split_name} split...")
     print(f"Using knowledge from: {knowledge_path}")
     
-    # First pass: identify valid samples
     print("Checking for valid image files...")
     valid_indices = []
     missing_count = 0
     missing_knowledge = 0
     
     for i in tqdm(range(len(split))):
+<<<<<<< Updated upstream
       img_path = os.path.join(working_dir, split[i]['img'])
       knowledge_entry = knowledge.get(str(split[i]['id']))
 
       if not is_valid_image(img_path):
+=======
+      img_path = os.path.join(args.input_dir, split[i]['img'])
+      if is_valid_image(img_path):
+        valid_indices.append(i)
+      else:
+>>>>>>> Stashed changes
         missing_count += 1
-        if missing_count <= 10:  # Only print first 10 to avoid spam
+        if missing_count <= 10: 
           print(f"  Missing/invalid: {split[i]['img']} (ID: {split[i]['id']})")
         continue
 
@@ -117,7 +139,6 @@ def main():
       batch_end = min(batch_start + batch_size, len(valid_indices))
       batch_idx = valid_indices[batch_start:batch_end]
       
-      # Collect batch data
       batch_images = []
       batch_texts = []
       batch_desc_texts = []
@@ -126,7 +147,7 @@ def main():
       batch_ids = []
       
       for idx in batch_idx:
-        img_path = os.path.join(working_dir, split[idx]['img'])
+        img_path = os.path.join(args.input_dir, split[idx]['img'])
         try:
           img = Image.open(img_path).convert('RGB')
           knowledge_entry = knowledge[str(split[idx]['id'])]
@@ -141,7 +162,6 @@ def main():
           print(f"  Error loading {img_path}: {e}")
           continue
       
-      # Skip empty batches
       if len(batch_images) == 0:
         continue
       
@@ -166,7 +186,6 @@ def main():
         
         with torch.no_grad():
           text_embeds = model.get_text_features(**text_inputs)
-          # Normalize
           text_embeds = text_embeds / text_embeds.norm(p=2, dim=-1, keepdim=True)
           text_batch_np = text_embeds.cpu().numpy()
       except Exception as e:
@@ -203,7 +222,6 @@ def main():
       labels_list.extend(batch_labels)
       ids_list.extend(batch_ids)
     
-    # Concatenate all batches
     if len(image_embeddings_list) == 0:
       raise ValueError(f"No valid samples found in {split_name} split!")
     
@@ -237,13 +255,15 @@ def main():
       'valid_indices': valid_indices
     }
 
-  # Extract embeddings for each split
+  if not os.path.exists(args.output_dir):
+    os.mkdir(args.output_dir)
+
   print("\n" + "="*50)
   train_embeddings = extract_embeddings('train', batch_size=32)
 
   # Save embeddings
   print("\nSaving embeddings...")
-  np.savez('hateful_memes_clip_embeddings_train.npz',
+  np.savez(os.path.join(args.output_dir, 'embeddings_train.npz'),
     image_embeddings=train_embeddings['image_embeddings'],
     text_embeddings=train_embeddings['text_embeddings'],
     desc_embeddings=train_embeddings['desc_embeddings'],
@@ -254,17 +274,12 @@ def main():
     ids=train_embeddings['ids'],
     valid_indices=np.array(train_embeddings['valid_indices']))
 
-  print("Embeddings saved to 'hateful_memes_clip_embeddings_train.npz'")
-
-  # Save valid indices for reference
-  np.savez('valid_indices_train.npz', 
-    valid_indices=np.array(train_embeddings['valid_indices']))
-  print("Valid indices saved to 'valid_indices_train.npz'")
+  print("Training embeddings saved in", args.output_dir)
 
   # If you want to process validation/test splits as well:
   if 'validation' in dataset:
     val_embeddings = extract_embeddings('validation', batch_size=32)
-    np.savez('hateful_memes_clip_embeddings_val.npz',
+    np.savez(os.path.join(args.output_dir, 'embeddings_val.npz'),
       image_embeddings=val_embeddings['image_embeddings'],
       text_embeddings=val_embeddings['text_embeddings'],
       desc_embeddings=val_embeddings['desc_embeddings'],
@@ -272,15 +287,21 @@ def main():
       text_concat_embeddings=val_embeddings['text_concat_embeddings'],
       meme_concat_embeddings=val_embeddings['meme_concat_embeddings'],
       labels=val_embeddings['labels'],
+<<<<<<< Updated upstream
       ids=val_embeddings['ids'],
       valid_indices=np.array(val_embeddings['valid_indices']))
     np.savez('valid_indices_val.npz',
       valid_indices=np.array(val_embeddings['valid_indices']))
+=======
+      ids=val_embeddings['ids'])
+    # np.savez('cleaned_valid_indices_val.npz',
+    #   valid_indices=np.array(val_embeddings['valid_indices']))
+>>>>>>> Stashed changes
     print("Validation embeddings saved!")
 
   if 'test' in dataset:
     test_embeddings = extract_embeddings('test', batch_size=32)
-    np.savez('hateful_memes_clip_embeddings_test.npz',
+    np.savez(os.path.join(args.output_dir, 'embeddings_test.npz'),
       image_embeddings=test_embeddings['image_embeddings'],
       text_embeddings=test_embeddings['text_embeddings'],
       desc_embeddings=test_embeddings['desc_embeddings'],
@@ -288,20 +309,18 @@ def main():
       text_concat_embeddings=test_embeddings['text_concat_embeddings'],
       meme_concat_embeddings=test_embeddings['meme_concat_embeddings'],
       labels=test_embeddings['labels'],
+<<<<<<< Updated upstream
       ids=test_embeddings['ids'],
       valid_indices=np.array(test_embeddings['valid_indices']))
     np.savez('valid_indices_test.npz',
       valid_indices=np.array(test_embeddings['valid_indices']))
+=======
+      ids=test_embeddings['ids'])
+    # np.savez('cleaned_valid_indices_test.npz',
+    #   valid_indices=np.array(test_embeddings['valid_indices']))
+>>>>>>> Stashed changes
     print("Test embeddings saved!")
 
-  # Example: Load embeddings later
-  print("\n" + "="*50)
-  print("To load the embeddings later, use:")
-  print("data = np.load('hateful_memes_clip_embeddings_train.npz')")
-  print("image_emb = data['image_embeddings']")
-  print("text_emb = data['text_embeddings']")
-  print("labels = data['labels']")
-  print("ids = data['ids']")
 
 if __name__ == '__main__':
   main()
